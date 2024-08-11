@@ -2,7 +2,7 @@ import asyncio
 from dotenv import load_dotenv
 
 load_dotenv()
-from project_name.bot import bot, dp
+from turpentine_task_tracker.bot import bot, dp
 
 
 if __name__ == "__main__":

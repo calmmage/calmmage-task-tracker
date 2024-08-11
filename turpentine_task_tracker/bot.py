@@ -1,6 +1,6 @@
 from aiogram import Dispatcher
 from dotenv import load_dotenv
-from project_name.lib import MyPlugin, MyApp, MyHandler
+from turpentine_task_tracker.lib import MyPlugin, MyApp, MyHandler
 
 from bot_lib import (
     BotConfig,
