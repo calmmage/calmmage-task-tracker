@@ -3,8 +3,12 @@ services:
     build: .
     command: python -m tracker.bot
     env_file: .env
+    environment:
+      OBSIDIAN_VAULT_MOUNT: /vault
     volumes:
       - ./data:/app/data
+      - ./plan:/app/plan:ro
+      - ${OBSIDIAN_VAULT:-./data}:/vault:ro
     restart: unless-stopped
 
   dashboard:

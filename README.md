@@ -13,13 +13,19 @@ small: a Telegram bot, a SQLite file, and a one-page dashboard.
 
 ## The daily loop
 
-1. **08:00** — bot pings: score yesterday if unscored, then `/drill` picks
-   today's Daily 3 (Focus / Body / People) in three questions.
+1. **08:00** — bot pings: score yesterday if unscored, shows the morning
+   routine checklist (one ✅ button), then reads the **Obsidian inbox from
+   disk**, has Claude triage it, and offers **3 focus buttons** — one tap sets
+   the day's Focus. No manual dumping.
 2. **21:30** — bot asks for the day's score (0–3 buttons) unless already scored.
 3. **Sunday 18:00** — weekly review checklist.
 
-Bot commands: `/drill`, `/score 0-3`, `/weight 91.2 [waist_cm]`, `/today`,
-`/stats`, `/cancel`.
+Bot commands: `/inbox` (re-triage anytime), `/focus <task>`, `/drill`,
+`/score 0-3`, `/weight 91.2 [waist_cm]`, `/today`, `/stats`, `/cancel`.
+
+Without `ANTHROPIC_API_KEY` the focus buttons come from `plan/on-deck.md`
+instead of LLM triage — the bot never blocks on an API. See "Where the AI is"
+in `plan/systems.md`.
 
 Dashboard (`:8000`): 12-week mission progress bar, 8-week Daily 3 score grid,
 90-day weight chart.
@@ -27,9 +33,14 @@ Dashboard (`:8000`): 12-week mission progress bar, 8-week Daily 3 score grid,
 ## Run it
 
 ```bash
-cp .env.example .env   # fill in TELEGRAM_BOT_TOKEN + TELEGRAM_USER_ID
+cp .env.example .env   # bot token, user id, OBSIDIAN_VAULT path, optional API key
 docker compose up -d --build
 ```
+
+Or let a local Claude Code session do it: the `deploy-tracker` skill in
+`.claude/skills/` walks through setup, vault glob configuration, and
+verification. Deploy target must be **always-on** — reminders die when the
+machine sleeps.
 
 Data lives in `./data/tracker.db` — back it up by copying the file.
 

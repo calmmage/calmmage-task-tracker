@@ -3,6 +3,7 @@
 Run with: python -m tracker.bot
 """
 
+import asyncio
 import logging
 from datetime import date, datetime, time as dtime, timedelta
 
@@ -17,7 +18,7 @@ from telegram.ext import (
     filters,
 )
 
-from tracker import config, db
+from tracker import config, db, triage
 
 log = logging.getLogger(__name__)
 FOCUS, BODY, PEOPLE = range(3)
@@ -46,12 +47,88 @@ def score_keyboard(day: date) -> InlineKeyboardMarkup:
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Drill sergeant online.\n\n"
-        "/drill — set today's Daily 3 (2 minutes)\n"
+        "/inbox — pick today's focus from your Obsidian inbox\n"
+        "/focus <task> — set focus directly\n"
+        "/drill — set the full Daily 3 (2 minutes)\n"
         "/score 0-3 — score the day\n"
         "/weight 91.2 [waist_cm] — log weight\n"
         "/today — today's plan\n"
         "/stats — the numbers"
     )
+
+
+async def send_focus_candidates(context: ContextTypes.DEFAULT_TYPE):
+    """Triage the Obsidian inbox (LLM if configured) and offer 3 focus buttons."""
+    items = await asyncio.to_thread(triage.gather_inbox)
+    note = "Season 1: weight 92.7→87.0 kg by Oct 2.\nOn deck:\n" + "\n".join(
+        f"- {c}" for c in triage.on_deck()
+    )
+    candidates = await asyncio.to_thread(triage.propose_focus, items, note)
+    if not candidates:
+        candidates = triage.on_deck()
+    if not candidates:
+        await context.bot.send_message(
+            config.OWNER_ID,
+            "No inbox items or on-deck list found. /focus <task> to set today's focus.",
+        )
+        return
+    context.bot_data["focus_candidates"] = candidates
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton(c[:60], callback_data=f"focus:{i}")]
+         for i, c in enumerate(candidates)]
+    )
+    await context.bot.send_message(
+        config.OWNER_ID,
+        "Pick ONE focus — or /focus <task> for your own:",
+        reply_markup=keyboard,
+    )
+
+
+async def inbox_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await send_focus_candidates(context)
+
+
+async def focus_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = " ".join(context.args).strip()
+    if not text:
+        await update.message.reply_text("Usage: /focus finish grading block")
+        return
+    with db.connect() as conn:
+        db.set_focus(conn, today(), text)
+    await update.message.reply_text(
+        f"FOCUS: {text}\nOne 90-min block. Everything else is bonus."
+    )
+
+
+async def on_focus(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    if q.from_user.id != config.OWNER_ID:
+        await q.answer()
+        return
+    idx = int(q.data.split(":")[1])
+    candidates = context.bot_data.get("focus_candidates", [])
+    if idx >= len(candidates):
+        await q.answer("Stale buttons — run /inbox again")
+        return
+    focus = candidates[idx]
+    with db.connect() as conn:
+        db.set_focus(conn, today(), focus)
+    await q.answer()
+    await q.edit_message_text(
+        f"FOCUS: {focus}\nOne 90-min block. Everything else is bonus."
+    )
+
+
+async def on_routine(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    if q.from_user.id != config.OWNER_ID:
+        await q.answer()
+        return
+    with db.connect() as conn:
+        db.set_routine(conn, today())
+    await q.answer()
+    done = "\n".join(f"☑ {s}" for s in config.ROUTINE)
+    await q.edit_message_text(f"Routine ✅\n{done}")
 
 
 async def drill_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -165,7 +242,7 @@ async def stats_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with db.connect() as conn:
         s = db.stats(conn, today())
     scores = " ".join("·" if v is None else str(v) for v in s["scores7"])
-    lines = [f"Last 7 days: {scores}"]
+    lines = [f"Last 7 days: {scores}", f"Morning routine: {s['routine7']}/7"]
     if s["avg7"] is not None:
         lines.append(f"Average: {s['avg7']}/3")
     if s["miss_gap"] is not None and s["miss_gap"] >= 2:
@@ -191,8 +268,17 @@ async def morning_job(context: ContextTypes.DEFAULT_TYPE):
             f"Score yesterday ({yesterday}) first:",
             reply_markup=score_keyboard(yesterday),
         )
+    routine = "\n".join(f"☐ {s}" for s in config.ROUTINE)
     await context.bot.send_message(
-        config.OWNER_ID, "Morning drill: /drill — pick today's 3. Two minutes, go."
+        config.OWNER_ID,
+        f"Morning. The boring basics first:\n{routine}",
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Routine ✅", callback_data="routine")]]
+        ),
+    )
+    await send_focus_candidates(context)
+    await context.bot.send_message(
+        config.OWNER_ID, "Then /drill for Body + People. Two minutes total."
     )
 
 
@@ -240,11 +326,15 @@ def main():
         )
     )
     app.add_handler(CommandHandler("start", start, filters=owner))
+    app.add_handler(CommandHandler("inbox", inbox_cmd, filters=owner))
+    app.add_handler(CommandHandler("focus", focus_cmd, filters=owner))
     app.add_handler(CommandHandler("score", score_cmd, filters=owner))
     app.add_handler(CommandHandler("weight", weight_cmd, filters=owner))
     app.add_handler(CommandHandler("today", today_cmd, filters=owner))
     app.add_handler(CommandHandler("stats", stats_cmd, filters=owner))
     app.add_handler(CallbackQueryHandler(on_score, pattern=r"^score:"))
+    app.add_handler(CallbackQueryHandler(on_focus, pattern=r"^focus:"))
+    app.add_handler(CallbackQueryHandler(on_routine, pattern=r"^routine$"))
 
     jq = app.job_queue
     jq.run_daily(morning_job, time=dtime(8, 0, tzinfo=config.TZ))

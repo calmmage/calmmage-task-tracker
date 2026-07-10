@@ -34,6 +34,22 @@ requested item gets a verdict, and the default verdict is NO.
    *wildcard slot* privilege, not a standing license. Tracker work competes
    with other wildcards at the weekly review like everything else.
 
+## Where the AI is (and deliberately isn't)
+
+The skeleton is deterministic: schedules, storage, buttons, canned reminder
+text. Zero cost, zero latency, never hallucinates a reminder. The LLM sits
+only at the judgment points where actual thinking is needed:
+
+1. **Morning inbox triage** — reads the Obsidian vault from disk (no manual
+   dumping), Claude picks 3 focus candidates against the season goal and
+   on-deck list; one button tap sets the day's Focus. Falls back to
+   `plan/on-deck.md` without an API key — the morning never blocks on an API.
+2. **Weekly review** — deeper thinking happens in a Claude session via
+   `/drill-me` against the same SQLite + repo (Phase 1 candidate: an in-bot
+   LLM weekly summary, only if the weekly Claude session proves too heavy).
+3. **Not for reminder phrasing.** LLM-flavored nagging is novelty that decays
+   in a week; canned lines are free and reliable.
+
 ## Phases
 
 - **Phase 0 (now):** bot + SQLite + 3 reminders + dashboard + compose. Done in

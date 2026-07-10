@@ -1,3 +1,4 @@
+import sqlite3
 from datetime import date, timedelta
 
 from tracker import db
@@ -43,6 +44,25 @@ def test_stats_empty_db(tmp_path):
         assert s["avg7"] is None
         assert s["miss_gap"] is None
         assert s["weight"] is None
+
+
+def test_routine_migration_on_old_db(tmp_path):
+    p = tmp_path / "old.db"
+    conn = sqlite3.connect(p)
+    conn.execute(
+        "CREATE TABLE days (date TEXT PRIMARY KEY, focus TEXT, body TEXT, "
+        "people TEXT, score INTEGER)"
+    )
+    conn.commit()
+    conn.close()
+    with db.connect(p) as c:
+        db.set_routine(c, D)
+        db.set_focus(c, D, "one thing")
+    with db.connect(p) as c:
+        row = db.get_day(c, D)
+        assert row["routine"] == 1
+        assert row["focus"] == "one thing"
+        assert db.stats(c, D)["routine7"] == 1
 
 
 def test_weight_trend(tmp_path):

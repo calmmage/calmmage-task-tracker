@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS days (
     focus TEXT,
     body TEXT,
     people TEXT,
-    score INTEGER
+    score INTEGER,
+    routine INTEGER
 );
 CREATE TABLE IF NOT EXISTS weights (
     date TEXT PRIMARY KEY,
@@ -30,6 +31,10 @@ def connect(path=None):
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
+    try:  # migrate DBs created before the routine column existed
+        conn.execute("ALTER TABLE days ADD COLUMN routine INTEGER")
+    except sqlite3.OperationalError:
+        pass
     try:
         yield conn
         conn.commit()
@@ -43,6 +48,22 @@ def set_daily3(conn, day: date, focus: str, body: str, people: str) -> None:
            ON CONFLICT(date) DO UPDATE SET
              focus=excluded.focus, body=excluded.body, people=excluded.people""",
         (day.isoformat(), focus, body, people),
+    )
+
+
+def set_focus(conn, day: date, focus: str) -> None:
+    conn.execute(
+        """INSERT INTO days (date, focus) VALUES (?, ?)
+           ON CONFLICT(date) DO UPDATE SET focus=excluded.focus""",
+        (day.isoformat(), focus),
+    )
+
+
+def set_routine(conn, day: date, done: bool = True) -> None:
+    conn.execute(
+        """INSERT INTO days (date, routine) VALUES (?, ?)
+           ON CONFLICT(date) DO UPDATE SET routine=excluded.routine""",
+        (day.isoformat(), int(done)),
     )
 
 
@@ -87,9 +108,12 @@ def latest_weight(conn):
 def stats(conn, today: date) -> dict:
     """Everything the bot and the dashboard show, computed in one place."""
     scores7 = []
+    routine7 = 0
     for i in range(6, -1, -1):
         row = get_day(conn, today - timedelta(days=i))
         scores7.append(None if row is None else row["score"])
+        if row is not None and row["routine"]:
+            routine7 += 1
     scored = [s for s in scores7 if s is not None]
     avg7 = round(sum(scored) / len(scored), 2) if scored else None
 
@@ -116,6 +140,7 @@ def stats(conn, today: date) -> dict:
     )
     return {
         "scores7": scores7,
+        "routine7": routine7,
         "avg7": avg7,
         "miss_gap": miss_gap,
         "weight": latest["kg"] if latest else None,
