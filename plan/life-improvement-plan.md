@@ -39,7 +39,10 @@ Three consequences:
 One day at a time means every morning you pick exactly three things
 (list length 3, as the prophecy foretold):
 
-1. **Focus** — the ONE project task that makes today a win.
+1. **Focus** — the ONE project task that makes today a win. Picked from
+   `plan/on-deck.md` (3 candidates max, set at the weekly review) — never
+   from the open backlog. Choosing from a billion ideas at decision time is
+   a system failure, not a willpower failure.
 2. **Body** — one physical thing (floor counts: walk, 10 push-ups, keep the
    fasting window).
 3. **People** — one deliberate moment with wife or daughter (not logistics —

@@ -49,6 +49,15 @@ questions per session, then stop — a drill is short or it stops happening.
 
 ## Hard rules
 
+0. **The 4am rule.** If the drill happens late at night / on a fried brain,
+   it collapses to one exchange: score the day, Focus for tomorrow defaults to
+   the top of `plan/on-deck.md`, and the only order is "go to sleep." Never run
+   the full drill on someone who should be sleeping — sleep IS the win.
+0b. **Never ask an open "pick your focus" question.** Focus is chosen from
+   `plan/on-deck.md` (max 3 candidates, refreshed at the weekly review).
+   Choosing from the full backlog causes paralysis — that's a system failure,
+   not a user failure. Offer the 3, let him pick or override.
+
 1. Never suggest doing less overall — contain, don't shrink. Redirect energy
    to the parking lot or the season quest.
 2. Never accept moderation-style commitments ("eat a bit less", "try to sleep

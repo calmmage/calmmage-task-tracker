@@ -57,7 +57,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def drill_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "1/3 FOCUS — the ONE task that makes today a win. "
-        "Which task, done by when? Vague answers rejected."
+        "Pick from your on-deck 3, not the backlog. Which one, done by when?"
     )
     return FOCUS
 
